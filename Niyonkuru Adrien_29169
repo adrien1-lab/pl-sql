@@ -1,1 +1,612 @@
 
+# Sunrise Supermarket — PL/SQL Assignment One
+
+**Student Name:** Niyonkuru Adrien  
+**Student ID:** 29169  
+**Assignment Title:** Windows Functions, CTEs and JOINs — Sunrise Supermarket   
+**Repository:** https://github.com/adrien1-lab/adrien1-lab
+
+---
+
+## 1. Business Scenario
+
+Sunrise Supermarket sells products to customers who place orders containing one or more items. Management wants to understand customer purchasing activity, customer spending, order history, and sales trends over time.
+
+This assignment uses SQL **JOINs, Common Table Expressions (CTEs), and Window Functions** to answer eight business questions.
+
+The database used for this assignment contains:
+
+| Table | Number of Records |
+|---|---:|
+| Customers | 5 |
+| Products | 8 |
+| Orders | 15 |
+| Order Items | 27 |
+
+The data satisfies the assignment requirements of at least 5 customers, 8 products across at least 3 categories, 15 orders, and 25 order items.
+
+---
+
+## 2. Database Tables
+
+The assignment uses four related tables:
+
+- `customers` — stores customer information such as name, email, and city.
+- `products` — stores product names, categories, and prices.
+- `orders` — stores customer orders and order dates.
+- `order_items` — stores the products and quantities belonging to each order.
+
+The main relationships are:
+
+- `orders.customer_id` → `customers.customer_id`
+- `order_items.order_id` → `orders.order_id`
+- `order_items.product_id` → `products.product_id`
+
+---
+
+## 3. How to Run the Assignment
+
+1. Open Oracle SQL Plus or Oracle SQL Developer.
+2. Connect to the Oracle database/schema containing the Sunrise Supermarket tables.
+3. Make sure the four tables have been created and populated.
+4. Run the queries in this README individually.
+5. Review the results returned by Oracle.
+6. The queries can also be placed into a `.sql` file and executed from Oracle.
+
+### Data verification
+
+The following queries were used to verify the amount of data in each table:
+
+```sql
+SELECT COUNT(*) FROM customers;
+SELECT COUNT(*) FROM products;
+SELECT COUNT(*) FROM orders;
+SELECT COUNT(*) FROM order_items;
+```
+
+The verified results were:
+
+```text
+CUSTOMERS    5
+PRODUCTS     8
+ORDERS       15
+ORDER_ITEMS  27
+```
+
+---
+
+# 4. Question 1 — INNER JOIN
+
+### Requirement
+
+List every order with the customer's name, city, and order date.
+
+### Query
+
+```sql
+SELECT
+    o.order_id,
+    c.customer_name,
+    c.city,
+    o.order_date
+FROM orders o
+INNER JOIN customers c
+    ON o.customer_id = c.customer_id
+ORDER BY o.order_date, o.order_id;
+```
+
+### Explanation
+
+This query uses an `INNER JOIN` to connect `orders` with `customers` through `customer_id`.
+
+The result provides the customer information associated with every order.
+
+### Result
+
+**15 rows selected.**
+
+This matches the 15 orders stored in the database.
+
+---
+
+# 5. Question 2 — JOIN `order_items` and `products`
+
+### Requirement
+
+List every order item with the product name, category, price, and quantity ordered.
+
+### Query
+
+```sql
+SELECT
+    oi.order_item_id,
+    oi.order_id,
+    p.product_name,
+    p.category,
+    p.price,
+    oi.quantity
+FROM order_items oi
+INNER JOIN products p
+    ON oi.product_id = p.product_id
+ORDER BY oi.order_id, oi.order_item_id;
+```
+
+### Explanation
+
+This query joins `order_items` with `products` using `product_id`.
+
+It allows management to see which products were included in orders, their categories and prices, and the quantities purchased.
+
+### Result
+
+**27 rows selected.**
+
+This matches the 27 order items stored in the database.
+
+---
+
+# 6. Question 3 — LEFT JOIN
+
+### Requirement
+
+List all customers and, where they exist, their orders, including customers who have never placed an order.
+
+### Query
+
+```sql
+SELECT
+    c.customer_id,
+    c.customer_name,
+    c.city,
+    o.order_id,
+    o.order_date
+FROM customers c
+LEFT JOIN orders o
+    ON c.customer_id = o.customer_id
+ORDER BY c.customer_id, o.order_date;
+```
+
+### Explanation
+
+A `LEFT JOIN` is used because the query must keep **all customers**, even if a customer has no matching order.
+
+If a customer has no order, the order-related columns will contain `NULL`.
+
+### Result
+
+The query returned the customer/order information while preserving the customer records required by the assignment.
+
+---
+
+# 7. Question 4 — CTE and Customers Above Average Spending
+
+### Requirement
+
+Calculate each customer's total amount spent using:
+
+`quantity × price`
+
+Then return only customers whose spending is above the average customer spend.
+
+### Query
+
+```sql
+WITH customer_totals AS (
+    SELECT
+        c.customer_id,
+        c.customer_name,
+        SUM(oi.quantity * p.price) AS total_spent
+    FROM customers c
+    JOIN orders o
+        ON c.customer_id = o.customer_id
+    JOIN order_items oi
+        ON o.order_id = oi.order_id
+    JOIN products p
+        ON oi.product_id = p.product_id
+    GROUP BY c.customer_id, c.customer_name
+),
+average_spend AS (
+    SELECT AVG(total_spent) AS avg_customer_spend
+    FROM customer_totals
+)
+SELECT
+    ct.customer_id,
+    ct.customer_name,
+    ct.total_spent
+FROM customer_totals ct
+CROSS JOIN average_spend a
+WHERE ct.total_spent > a.avg_customer_spend
+ORDER BY ct.total_spent DESC;
+```
+
+### Explanation
+
+The first CTE, `customer_totals`, calculates the total spending for every customer.
+
+The second CTE, `average_spend`, calculates the average of those customer totals.
+
+The main query then returns only customers whose spending is greater than the average.
+
+### Actual Result
+
+The customer totals calculated from the database were:
+
+| Customer | Total Spent (RWF) |
+|---|---:|
+| Alice Uwase | 49,700 |
+| Brian Niyonzima | 39,100 |
+| David Habimana | 36,900 |
+| Esther Ingabire | 32,200 |
+| Claudine Mukamana | 28,000 |
+
+The average customer spending was:
+
+**37,180 RWF**
+
+Therefore, the query returned:
+
+| Customer | Total Spent (RWF) |
+|---|---:|
+| Alice Uwase | 49,700 |
+| Brian Niyonzima | 39,100 |
+
+---
+
+# 8. Question 5 — RANK Window Function
+
+### Requirement
+
+Rank customers by their total amount spent, with the highest spending customer receiving rank 1.
+
+### Query
+
+```sql
+WITH customer_totals AS (
+    SELECT
+        c.customer_id,
+        c.customer_name,
+        SUM(oi.quantity * p.price) AS total_spent
+    FROM customers c
+    JOIN orders o
+        ON c.customer_id = o.customer_id
+    JOIN order_items oi
+        ON o.order_id = oi.order_id
+    JOIN products p
+        ON oi.product_id = p.product_id
+    GROUP BY c.customer_id, c.customer_name
+)
+SELECT
+    customer_id,
+    customer_name,
+    total_spent,
+    RANK() OVER (ORDER BY total_spent DESC) AS spending_rank
+FROM customer_totals
+ORDER BY spending_rank, customer_id;
+```
+
+### Explanation
+
+The `RANK()` window function assigns a ranking based on total customer spending.
+
+`ORDER BY total_spent DESC` means the largest spending amount receives rank 1.
+
+### Actual Result
+
+| Rank | Customer | Total Spent (RWF) |
+|---:|---|---:|
+| 1 | Alice Uwase | 49,700 |
+| 2 | Brian Niyonzima | 39,100 |
+| 3 | David Habimana | 36,900 |
+| 4 | Esther Ingabire | 32,200 |
+| 5 | Claudine Mukamana | 28,000 |
+
+---
+
+# 9. Question 6 — ROW_NUMBER Window Function
+
+### Requirement
+
+Number each customer's orders in the order they were placed.
+
+### Query
+
+```sql
+SELECT
+    o.order_id,
+    c.customer_name,
+    o.order_date,
+    ROW_NUMBER() OVER (
+        PARTITION BY o.customer_id
+        ORDER BY o.order_date, o.order_id
+    ) AS customer_order_number
+FROM orders o
+JOIN customers c
+    ON o.customer_id = c.customer_id
+ORDER BY c.customer_name, customer_order_number;
+```
+
+### Explanation
+
+`ROW_NUMBER()` assigns a sequential number to each order.
+
+`PARTITION BY o.customer_id` causes the numbering to restart for every customer.
+
+The orders are arranged chronologically using `order_date` and `order_id`.
+
+### Result
+
+**15 rows selected.**
+
+Examples from the verified SQL Plus output include:
+
+- Esther Ingabire — 08-SEP-26 → order number 1
+- Esther Ingabire — 16-SEP-26 → order number 2
+- Esther Ingabire — 20-SEP-26 → order number 3
+
+This demonstrates that the numbering restarts for each customer.
+
+---
+
+# 10. Question 7 — Running Total of Revenue
+
+### Requirement
+
+Show a running total of revenue over time, ordered by order date.
+
+### Query
+
+```sql
+WITH daily_revenue AS (
+    SELECT
+        o.order_date,
+        SUM(oi.quantity * p.price) AS daily_revenue
+    FROM orders o
+    JOIN order_items oi
+        ON o.order_id = oi.order_id
+    JOIN products p
+        ON oi.product_id = p.product_id
+    GROUP BY o.order_date
+)
+SELECT
+    order_date,
+    daily_revenue,
+    SUM(daily_revenue) OVER (
+        ORDER BY order_date
+        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+    ) AS running_total_revenue
+FROM daily_revenue
+ORDER BY order_date;
+```
+
+### Explanation
+
+The `daily_revenue` CTE first calculates total revenue for each order date.
+
+The window `SUM()` then adds each day's revenue to all previous revenue, producing a cumulative running total.
+
+### Actual Result
+
+The query returned **15 rows**.
+
+| Order Date | Daily Revenue (RWF) | Running Total (RWF) |
+|---|---:|---:|
+| 01-SEP-26 | 14,500 | 14,500 |
+| 02-SEP-26 | 11,600 | 26,100 |
+| 04-SEP-26 | 19,500 | 45,600 |
+| 05-SEP-26 | 12,000 | 57,600 |
+| 06-SEP-26 | 18,400 | 76,000 |
+| 08-SEP-26 | 12,000 | 88,000 |
+| 10-SEP-26 | 14,000 | 102,000 |
+| 11-SEP-26 | 9,400 | 111,400 |
+| 13-SEP-26 | 15,700 | 127,100 |
+| 15-SEP-26 | 11,500 | 138,600 |
+| 16-SEP-26 | 13,000 | 151,600 |
+| 18-SEP-26 | 13,500 | 165,100 |
+| 19-SEP-26 | 6,600 | 171,700 |
+| 20-SEP-26 | 7,200 | 178,900 |
+| 21-SEP-26 | 7,000 | **185,900** |
+
+The final running total is **185,900 RWF**.
+
+---
+
+# 11. Question 8 — LAG and Days Between Orders
+
+### Requirement
+
+For each customer with more than one order, show how many days passed between their current and previous order.
+
+### Query
+
+```sql
+WITH order_history AS (
+    SELECT
+        o.order_id,
+        o.customer_id,
+        c.customer_name,
+        o.order_date,
+        LAG(o.order_date) OVER (
+            PARTITION BY o.customer_id
+            ORDER BY o.order_date, o.order_id
+        ) AS previous_order_date
+    FROM orders o
+    JOIN customers c
+        ON o.customer_id = c.customer_id
+)
+SELECT
+    customer_id,
+    customer_name,
+    order_id,
+    order_date,
+    previous_order_date,
+    order_date - previous_order_date AS days_since_previous_order
+FROM order_history
+WHERE previous_order_date IS NOT NULL
+ORDER BY customer_id, order_date;
+```
+
+### Explanation
+
+`LAG()` retrieves the previous order date for the same customer.
+
+The expression:
+
+```sql
+order_date - previous_order_date
+```
+
+uses Oracle `DATE` subtraction to calculate the number of days between the current and previous order.
+
+The first order for each customer has no previous order, so `LAG()` returns `NULL`. Those rows are removed using:
+
+```sql
+WHERE previous_order_date IS NOT NULL
+```
+
+### Actual Result
+
+**10 rows selected.**
+
+Examples from the verified SQL Plus output:
+
+| Customer | Current Order | Current Date | Previous Date | Days |
+|---|---:|---|---|---:|
+| David Habimana | 115 | 21-SEP-26 | 15-SEP-26 | 6 |
+| Esther Ingabire | 111 | 16-SEP-26 | 08-SEP-26 | 8 |
+| Esther Ingabire | 114 | 20-SEP-26 | 16-SEP-26 | 4 |
+
+The complete SQL Plus result was used to verify that the query returned 10 rows.
+
+---
+
+# 12. Business Interpretation
+
+The results provide several useful insights from the sample Sunrise Supermarket data.
+
+### Customer spending
+
+The total customer spending was:
+
+- Alice Uwase: **49,700 RWF**
+- Brian Niyonzima: **39,100 RWF**
+- David Habimana: **36,900 RWF**
+- Esther Ingabire: **32,200 RWF**
+- Claudine Mukamana: **28,000 RWF**
+
+The average customer spending was **37,180 RWF**. Alice Uwase and Brian Niyonzima were the customers whose spending was above this average.
+
+### Customer ranking
+
+The `RANK()` query provides a simple way for management to compare customer spending levels.
+
+The ranking was:
+
+1. Alice Uwase — 49,700 RWF
+2. Brian Niyonzima — 39,100 RWF
+3. David Habimana — 36,900 RWF
+4. Esther Ingabire — 32,200 RWF
+5. Claudine Mukamana — 28,000 RWF
+
+### Order frequency
+
+The `ROW_NUMBER()` and `LAG()` queries provide information about repeat purchasing behavior.
+
+For example, Esther Ingabire placed orders on 08-SEP-26, 16-SEP-26, and 20-SEP-26. The gaps between these orders were 8 days and 4 days.
+
+This type of information can help management study repeat-purchase patterns.
+
+### Revenue trend
+
+The running-revenue query shows that cumulative revenue increased from **14,500 RWF on 01-SEP-26** to **185,900 RWF on 21-SEP-26**.
+
+Management can use this type of calculation to monitor cumulative sales performance over time.
+
+### Customer/order relationship
+
+The `LEFT JOIN` in Question 3 ensures that customers are not lost from the result merely because they have no order. This is useful when management wants to identify customers with little or no purchasing activity.
+
+> **Note:** These interpretations are based only on the sample database created for this assignment. They are not claims about actual Sunrise Supermarket business performance.
+
+---
+
+# 13. Challenges and Solutions
+
+## Challenge 1 — Understanding JOINs
+
+Connecting information from different tables required understanding primary keys and foreign keys.
+
+**Solution:** The relationships between `customer_id`, `order_id`, and `product_id` were used to connect the tables correctly.
+
+## Challenge 2 — Calculating customer spending
+
+Customer spending required multiplying the quantity ordered by the product price and then adding the values across order items.
+
+**Solution:**
+
+```sql
+SUM(oi.quantity * p.price)
+```
+
+was used to calculate total spending.
+
+## Challenge 3 — Filtering customers above average
+
+The query needed to calculate customer totals before calculating the average and filtering the results.
+
+**Solution:** A CTE was used to calculate customer totals first, followed by another CTE for the average.
+
+## Challenge 4 — Understanding window functions
+
+Functions such as `RANK()`, `ROW_NUMBER()`, and `LAG()` work across related rows without collapsing them like a normal `GROUP BY`.
+
+**Solution:** `PARTITION BY` was used where calculations needed to restart for each customer, while `ORDER BY` controlled the sequence of rows.
+
+## Challenge 5 — Calculating days between orders
+
+The previous order date had to be retrieved for each customer.
+
+**Solution:** `LAG()` was used to retrieve the previous order date, and Oracle `DATE` subtraction was used to calculate the number of days.
+
+---
+
+# 14. SQL Concepts Demonstrated
+
+This assignment demonstrates the following SQL concepts:
+
+| Concept | Used In |
+|---|---|
+| `INNER JOIN` | Questions 1, 2 |
+| `LEFT JOIN` | Question 3 |
+| `CTE` (`WITH`) | Questions 4, 5, 7, 8 |
+| Aggregate functions | Questions 4, 5, 7 |
+| `AVG()` | Question 4 |
+| `SUM()` | Questions 4, 7 |
+| `RANK()` | Question 5 |
+| `ROW_NUMBER()` | Question 6 |
+| Running window `SUM()` | Question 7 |
+| `LAG()` | Question 8 |
+| `PARTITION BY` | Questions 6, 8 |
+| `ORDER BY` in window functions | Questions 5–8 |
+
+---
+
+# 15. Conclusion
+
+The Sunrise Supermarket assignment was completed using Oracle SQL.
+
+The eight questions demonstrate how JOINs can combine related information, CTEs can organize multi-step calculations, and window functions can analyze rows while preserving individual records.
+
+The final verified database contains:
+
+- **5 customers**
+- **8 products**
+- **15 orders**
+- **27 order items**
+
+The queries successfully produced customer/order information, product-order information, customer spending above average, spending rankings, order sequence numbers, cumulative revenue, and the number of days between repeat orders.
+
+The final cumulative revenue calculated from the sample data was **185,900 RWF**.
+
+---
+
+
